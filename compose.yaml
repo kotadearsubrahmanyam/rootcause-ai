@@ -27,6 +27,19 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  worker:
+    build: ./api
+    command: ["python", "worker.py"]
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGDATABASE: rootcause
+      PGUSER: rootcause
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    depends_on:
+      api:
+        condition: service_healthy
   collector:
     image: otel/opentelemetry-collector:0.123.0
     volumes:

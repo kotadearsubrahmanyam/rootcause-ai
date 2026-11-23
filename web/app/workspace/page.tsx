@@ -1,3 +1,4 @@
+import History from "./history";
 import Incidents from "./incidents";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -31,5 +32,5 @@ export default async function Workspace({ searchParams }: { searchParams: Promis
     <section className="glass panel"><small>{project?.name || "Project unavailable"}</small><h1>{view}</h1>
     {view === "Overview" ? <div className="grid"><article><h2>Project connection</h2><strong>{project ? "Connected" : "Unavailable"}</strong><p>{project ? "The API can read this project from PostgreSQL." : "Check the API and database connection."}</p></article>
     <article><h2>Application health</h2><strong>{failures === null ? "Unavailable" : failures ? "Checkout failures recorded" : "Awaiting telemetry"}</strong><p>{failures ? `Open Incidents to inspect ${failures} failed requests.` : "Service health will appear after the first trace arrives."}</p></article></div>
-    : view === "Incidents" ? <Incidents/> : <article><h2>{view === "History" ? "No investigations yet" : "No incidents recorded"}</h2><p>{view === "History" ? "Completed investigations will appear here." : "Incidents will appear when the store sends failure data."}</p></article>}</section></main>;
+    : view === "Incidents" ? <Incidents/> : <History/>}</section></main>;
 }

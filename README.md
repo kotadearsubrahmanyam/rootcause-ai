@@ -17,6 +17,10 @@ Start the Compose stack, open **Explore demo**, then **Incidents**, and select *
 
 Use Compose for this walkthrough. The standalone Windows web launcher supports login but needs a separately reachable API for incident evidence.
 
+## Investigate with Groq
+
+Add `GROQ_API_KEY` to the local root `.env` and run `docker compose up --build -d --wait`. Open Incidents, run checkout once on the rebuilt demo release, refresh evidence, and select **Investigate**. The worker sends demo evidence to Groq when requested. Expand each citation to inspect its source. History reopens the saved result. To reload a changed key, run `docker compose up -d worker`.
+
 ## Google login
 
 Create a Google OAuth web application. Set the authorized JavaScript origin to `http://localhost:3000` and the redirect URI to `http://localhost:3000/api/auth/callback/google`. In the generated root `.env`, fill in `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`. Keep the generated session secret. Run `docker compose up -d web` to reload the configuration, then choose **Continue with Google**. Signed-in users land in the demo workspace.
@@ -27,7 +31,7 @@ Create a Google OAuth web application. Set the authorized JavaScript origin to `
 | --- | --- | --- |
 | 1 - Foundation | Complete | A fresh Compose start, guest dashboard and real Google sign-in |
 | 2 - Evidence | Complete | A real failed request correlates with its deployed commit |
-| 3 · AI investigator | Planned | Diagnosis cites logs and source lines |
+| 3 · AI investigator | In progress | Diagnosis cites logs and source lines |
 | 4 · Patch validation | Planned | Same regression test runs before and after patch |
 | 5 · Product workflow | Planned | History, graph and second project connection |
 | 6 · Demo readiness | Planned | Three failure scenarios and recovery cases rehearsed |

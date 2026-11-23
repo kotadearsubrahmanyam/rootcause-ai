@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 import evidence
+import investigations
 import psycopg
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 async def lifespan(app: FastAPI):
     with psycopg.connect() as db:
         evidence.init(db)
+        investigations.init(db)
         db.execute("CREATE TABLE IF NOT EXISTS projects (slug text PRIMARY KEY, name text NOT NULL)")
         db.execute("INSERT INTO projects VALUES (%s, %s) ON CONFLICT DO NOTHING", ("demo", "Demo store"))
     yield
@@ -19,6 +21,7 @@ app = FastAPI(title="RootCause AI", lifespan=lifespan)
 
 
 app.include_router(evidence.router)
+app.include_router(investigations.router)
 
 
 class Project(BaseModel):

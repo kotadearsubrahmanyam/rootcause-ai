@@ -1,3 +1,4 @@
+import Investigator from "./investigator";
 import { revalidatePath } from "next/cache";
 
 type Span = { service: string; status: number | string; duration_ms: number; message: string; events: Record<string, string>[] };
@@ -24,5 +25,6 @@ export default async function Incidents() {
         {i.spans.map(s => <article key={s.service}><h2>{s.service} · HTTP {s.status} · {s.duration_ms} ms</h2><p>{s.message}</p>
           {s.events.map((event,index) => <pre key={index}>{event["exception.message"] || event.fields}</pre>)}</article>)}
         {i.diff && <><h2>Deployment change</h2><p><code>{i.previous?.slice(0,8)} → {i.revision.slice(0,8)}</code></p><pre style={{overflowX:"auto"}}>{i.diff}</pre></>}
+        <Investigator key={i.trace} trace={i.trace}/>
       </details>)}</>;
 }

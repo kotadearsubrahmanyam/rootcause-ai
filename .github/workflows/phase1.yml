@@ -57,6 +57,72 @@ jobs:
           PY
           curl -fsS 'http://localhost:3000/workspace?demo=1&view=incidents' -o /tmp/evidence
           grep -q 'Deployment change' /tmp/evidence
+      - name: Verify investigation retry, tools, streaming and persistence
+        run: |
+          docker compose exec -T api python - <<'PY'
+          """Exercise Phase 3 using real captured traces and a scripted Groq HTTP response."""
+          import json
+          import time
+          
+          import httpx
+          import psycopg
+          from groq import Groq
+          
+          from worker import process
+          
+          api = "http://localhost:8000"
+          trace = httpx.get(api + "/demo/incidents").json()[0]["trace"]
+          url = f"{api}/investigations/{trace}"
+          assert httpx.post(url).is_success
+          # CI runs without credentials. Verify a recoverable error is persisted.
+          for _ in range(30):
+              job = httpx.get(url).json()
+              if job["status"] == "failed":
+                  break
+              time.sleep(0.3)
+          assert "GROQ_API_KEY" in job["error"]
+          PY
+          docker compose stop worker
+          docker compose exec -T api python - <<'PY'
+          import json
+          
+          import httpx
+          import psycopg
+          from groq import Groq
+          from worker import process
+          
+          api = "http://localhost:8000"
+          trace = httpx.get(api + "/demo/incidents").json()[0]["trace"]
+          url = f"{api}/investigations/{trace}"
+          assert httpx.post(url).is_success
+          calls = []
+          def provider(request):
+              messages = json.loads(request.content)["messages"]
+              if calls:
+                  assert messages[-1]["role"] == "tool"
+                  assert json.loads(messages[-1]["content"])
+              name = ["read_trace", "read_diff", "read_source", "submit_diagnosis"][len(calls)]
+              args = {}
+              if name == "submit_diagnosis":
+                  assert "inventory.py:2" in json.loads(messages[-1]["content"])
+                  args = {"cause": "Inventory renamed quantity.", "citations": ["trace:orders","deployment:diff","inventory.py:2"],
+                          "uncertainty": "Demo fixture only", "proposed_patch": "Restore quantity as an alias."}
+              calls.append(name)
+              return httpx.Response(200, json={"id":"ci","object":"chat.completion","created":1,"model":"test",
+                  "choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":None,
+                  "tool_calls":[{"id":name,"type":"function","function":{"name":name,"arguments":json.dumps(args)}}]}}]})
+          
+          client = Groq(api_key="ci-fixture", http_client=httpx.Client(transport=httpx.MockTransport(provider)))
+          with psycopg.connect(autocommit=True) as db:
+              assert process(db, client)
+              assert httpx.post(url).is_success
+              assert not process(db, client)
+          job = httpx.get(url).json()
+          assert job["status"] == "done" and len(job["result"]["evidence"]) == 3, job
+          assert len(job["steps"]) == 4
+          assert trace in httpx.get(url+"/events").text
+          assert httpx.get(api+"/investigations").json()[0]["trace"] == trace
+          PY
       - name: Diagnose missing spans
         if: failure()
         run: docker compose logs --tail=80 api collector checkout inventory orders

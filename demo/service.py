@@ -29,6 +29,11 @@ tracer = trace.get_tracer("demo.store")
 app = FastAPI()
 
 
+@app.get("/source")
+def deployed_inventory():
+    return {"revision": revision, "lines": git("show", "HEAD:inventory.py").splitlines()}
+
+
 @app.get("/health")
 def health():
     return {"ready": True}
