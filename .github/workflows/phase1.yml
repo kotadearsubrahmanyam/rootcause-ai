@@ -1,0 +1,39 @@
+name: Phase 1 acceptance
+on:
+  push:
+    paths:
+      - '.github/workflows/phase1.yml'
+      - 'web/**'
+      - 'api/**'
+      - 'compose.yaml'
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate ephemeral local configuration
+        run: pwsh -File setup.ps1
+      - name: Start the complete application
+        run: docker compose up --build --wait --wait-timeout 120
+      - name: Check guest navigation and protected entry
+        shell: bash
+        run: |
+          set -eu
+          base=http://localhost:3000
+          curl -fsS --retry 20 --retry-connrefused "$base/" -o /tmp/entry
+          grep -F 'Explore demo' /tmp/entry
+          curl -fsS "$base/workspace?demo=1" -o /tmp/overview
+          grep -q '>Connected<' /tmp/overview
+          grep -q 'Demo store' /tmp/overview
+          curl -fsS "$base/workspace?demo=1&view=incidents" -o /tmp/incidents
+          grep -q 'No incidents recorded' /tmp/incidents
+          curl -fsS "$base/workspace?demo=1&view=history" -o /tmp/history
+          grep -q 'No investigations yet' /tmp/history
+          landing=$(curl -LsS -o /dev/null -w '%{url_effective}' "$base/workspace")
+          test "$landing" = "$base/"
+      - name: Report service status
+        if: always()
+        run: docker compose ps -a
