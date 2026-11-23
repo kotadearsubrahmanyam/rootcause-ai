@@ -19,7 +19,7 @@ export default function Validation({url, saved}: {url:string; saved?:ValidationR
   }
   const labels: Record<string,string> = {passed:"Both checks passed",failed:"Patch failed validation",unapplied:"Patch could not be applied",inconclusive:"Baseline inconclusive",unavailable:"Release unavailable"};
   return <section><h3>Patch validation</h3>
-    {(!result || result.status==="unavailable") && <button disabled={busy} onClick={validate}>{busy?"Running checkout tests…":"Validate patch"}</button>}
+    {(!result || ["unavailable","unapplied"].includes(result.status)) && <button disabled={busy} onClick={validate}>{busy?"Running checkout tests…":result?.status==="unapplied"?"Retry validation":"Validate patch"}</button>}
     <div aria-live="polite">{error && <p>{error}</p>}{result && <><strong>{labels[result.status] || result.status}</strong>
       {result.message && <p>{result.message}</p>}
       {(["before","after"] as const).map(stage=>{const run=result[stage];return run && <details key={stage} open><summary>{stage==="before"?"Before patch":"After patch"} · {run.exit_code===0?"Pass":"Fail"}</summary><pre style={{whiteSpace:"pre-wrap"}}>{run.output}</pre></details>;})}</>}</div></section>;

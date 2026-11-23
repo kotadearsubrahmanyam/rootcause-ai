@@ -61,7 +61,7 @@ def validate_saved(trace: str):
         if not row or not row[1]:
             raise HTTPException(409, "A completed investigation with a proposed patch is required.")
         revision, patch, saved = row
-        if saved and saved["status"] != "unavailable":
+        if saved and saved["status"] not in {"unavailable", "unapplied"}:
             return saved
         try:
             response = httpx.post("http://validator:8000/validate",

@@ -89,11 +89,17 @@ def check_change(name, original, updated):
     old = ast.parse(original)
     new = ast.parse(updated)
     if name == "inventory.py":
-        if (len(new.body) == 1 and isinstance(new.body[0], ast.FunctionDef)
-                and len(new.body[0].body) == 1 and isinstance(new.body[0].body[0], ast.Return)
-                and isinstance(new.body[0].body[0].value, ast.Dict)
-                and stock_expression(new.body[0].body[0].value)):
-            new.body[0].body = old.body[0].body
+        if len(new.body) == 1 and isinstance(new.body[0], ast.FunctionDef):
+            statements = new.body[0].body
+            if len(statements) == 2 and isinstance(statements[0], ast.Assign):
+                assignment = statements[0]
+                if (len(assignment.targets) == 1 and isinstance(assignment.targets[0], ast.Name)
+                        and assignment.targets[0].id in {"qty", "quantity"}
+                        and isinstance(assignment.value, ast.Constant) and type(assignment.value.value) is int):
+                    statements = statements[1:]
+            if (len(statements) == 1 and isinstance(statements[0], ast.Return)
+                    and isinstance(statements[0].value, ast.Dict) and stock_expression(statements[0].value)):
+                new.body[0].body = old.body[0].body
     else:
         # Only the stock calculation in the existing Orders exception handler is editable.
         old_try, = [n for n in ast.walk(old) if isinstance(n, ast.Try)]
