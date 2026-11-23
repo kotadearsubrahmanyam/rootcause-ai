@@ -1,0 +1,7 @@
+diff --git a/inventory.py b/inventory.py
+--- a/inventory.py
++++ b/inventory.py
+@@ -1,2 +1,2 @@
+ def stock():
+-    return {"quantity": 5}
++    return {"available_quantity": 5}

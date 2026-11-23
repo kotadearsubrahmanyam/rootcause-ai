@@ -5,6 +5,8 @@ on:
       - '.github/workflows/phase1.yml'
       - 'web/**'
       - 'api/**'
+      - 'demo/**'
+      - 'collector.yaml'
       - 'compose.yaml'
 permissions:
   contents: read
@@ -34,6 +36,26 @@ jobs:
           grep -q 'No investigations yet' /tmp/history
           landing=$(curl -LsS -o /dev/null -w '%{url_effective}' "$base/workspace")
           test "$landing" = "$base/"
+      - name: Replay checkout and verify captured evidence
+        run: |
+          docker compose exec -T api python - <<'PY'
+          import httpx, time
+          api = "http://localhost:8000"
+          for _ in range(2):
+              assert httpx.post(api+"/demo/checkout").json()["checkout_status"] == 502
+          for _ in range(30):
+              incidents = httpx.get(api+"/demo/incidents").json()
+              if incidents and incidents[0]["count"] == 2 and len(incidents[0]["spans"]) == 3:
+                  break
+              time.sleep(1)
+          report, = incidents
+          assert report["count"] == 2
+          assert {s["service"]:int(s["status"]) for s in report["spans"]} == {"checkout":502,"orders":502,"inventory":200}
+          assert report["previous"] != report["revision"] and '+    return {"available_quantity": 5}' in report["diff"]
+          assert any("quantity" in s["message"] for s in report["spans"])
+          PY
+          curl -fsS 'http://localhost:3000/workspace?demo=1&view=incidents' -o /tmp/evidence
+          grep -q 'Deployment change' /tmp/evidence
       - name: Report service status
         if: always()
         run: docker compose ps -a
