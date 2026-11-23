@@ -9,7 +9,8 @@ async function forward(req: NextRequest, context: Context) {
     return new Response(null, {status: 403});
   }
   const streaming = req.method === "GET" && req.nextUrl.searchParams.has("events");
-  const upstream = await fetch(process.env.API_URL + "/investigations/" + trace + (streaming ? "/events" : ""), {
+  const validating = req.method === "POST" && req.nextUrl.searchParams.has("validate");
+  const upstream = await fetch(process.env.API_URL + "/investigations/" + trace + (validating ? "/validate" : streaming ? "/events" : ""), {
     method: req.method, cache: "no-store", signal: req.signal,
   });
   return new Response(upstream.body, {status: upstream.status, headers: {

@@ -106,7 +106,7 @@ jobs:
               if name == "submit_diagnosis":
                   assert "inventory.py:2" in json.loads(messages[-1]["content"])
                   args = {"cause": "Inventory renamed quantity.", "citations": ["trace:orders","deployment:diff","inventory.py:2"],
-                          "uncertainty": "Demo fixture only", "proposed_patch": "Restore quantity as an alias."}
+                          "uncertainty": "Demo fixture only", "proposed_patch": '--- a/inventory.py\n+++ b/inventory.py\n@@\n-    return {"available_quantity": 5}\n+    return {"quantity": 5, "available_quantity": 5}'}
               calls.append(name)
               return httpx.Response(200, json={"id":"ci","object":"chat.completion","created":1,"model":"test",
                   "choices":[{"index":0,"finish_reason":"tool_calls","message":{"role":"assistant","content":None,
@@ -122,6 +122,28 @@ jobs:
           assert len(job["steps"]) == 4
           assert trace in httpx.get(url+"/events").text
           assert httpx.get(api+"/investigations").json()[0]["trace"] == trace
+          PY
+      - name: Validate good, regressive and malformed patches
+        run: |
+          docker compose exec -T api python - <<'PY'
+          import httpx
+          host = "http://localhost:8000"
+          incident, = httpx.get(host+"/demo/incidents").json()
+          url = host+"/investigations/"+incident["trace"]
+          r = httpx.post(url+"/validate", timeout=50)
+          assert r.is_success, r.text
+          result = r.json()
+          assert result["status"] == "passed", result
+          assert result["before"]["exit_code"] == 1 and result["after"]["exit_code"] == 0
+          assert httpx.get(url).json()["validation"] == result
+          weak = '--- a/service.py\n+++ b/service.py\n@@\n-    body = {"accepted": body["quantity"] > 0}\n+    qty = body.get("available_quantity", body.get("quantity", 0))\n+    body = {"accepted": qty > 0}'
+          for patch, expected in [(weak, "failed"), ("replace the field","unapplied")]:
+              response = httpx.post("http://validator:8000/validate",json={"revision":incident["revision"],"patch":patch},timeout=50)
+              actual = response.json()
+              assert actual["status"] == expected, actual
+              if expected == "failed":
+                  assert "test_missing_stock_field" in actual["after"]["output"]
+          assert httpx.post(host+"/demo/checkout").json()["checkout_status"] == 502
           PY
       - name: Diagnose missing spans
         if: failure()

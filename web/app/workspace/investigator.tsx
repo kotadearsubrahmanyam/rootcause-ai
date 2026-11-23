@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 
+import Validation, { type ValidationResult } from "./validation";
+
 type Report = {cause:string; proposed_patch:string; uncertainty:string; evidence: Record<string, unknown>};
-type Job = {status:string; steps:string[]; error?:string; result?:Report};
+type Job = {status:string; steps:string[]; error?:string; result?:Report; validation?:ValidationResult};
 
 export default function Investigator({trace}: {trace:string}) {
   const [job,setJob] = useState<Job>({status:"loading",steps:[]});
@@ -44,6 +46,6 @@ export default function Investigator({trace}: {trace:string}) {
     {job.result && <><h3>Probable cause</h3><p>{job.result.cause}</p>
       {Object.entries(job.result.evidence).map(([id,value])=><details key={id}><summary>{id}</summary><pre style={{whiteSpace:"pre-wrap"}}>{typeof value==="string"?value:JSON.stringify(value,null,2)}</pre></details>)}
       {job.result.uncertainty && <p>{job.result.uncertainty}</p>}
-      {job.result.proposed_patch && <><h3>Proposed patch · untested</h3><pre style={{overflowX:"auto"}}>{job.result.proposed_patch}</pre></>}</>}
+      {job.result.proposed_patch && <><h3>Proposed patch</h3><pre style={{overflowX:"auto"}}>{job.result.proposed_patch}</pre><Validation url={url} saved={job.validation}/></>}</>}
   </article>;
 }

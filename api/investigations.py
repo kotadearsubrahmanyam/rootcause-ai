@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 
+import httpx
 import psycopg
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -18,6 +19,7 @@ def init(db):
         trace text PRIMARY KEY, evidence jsonb NOT NULL, status text NOT NULL DEFAULT 'queued',
         steps text[] NOT NULL DEFAULT '{}', result jsonb, error text,
         created_at timestamptz NOT NULL DEFAULT now())""")
+    db.execute("ALTER TABLE investigations ADD COLUMN IF NOT EXISTS validation jsonb")
 
 
 def snapshot(db, trace):
@@ -51,9 +53,32 @@ def start(trace: str):
     return {"trace": trace}
 
 
+@router.post("/investigations/{trace}/validate")
+def validate_saved(trace: str):
+    with psycopg.connect() as db:
+        row = db.execute("""SELECT evidence->>'revision',result->>'proposed_patch',validation
+            FROM investigations WHERE trace=%s AND status='done' FOR UPDATE""", (trace,)).fetchone()
+        if not row or not row[1]:
+            raise HTTPException(409, "A completed investigation with a proposed patch is required.")
+        revision, patch, saved = row
+        if saved and saved["status"] != "unavailable":
+            return saved
+        try:
+            response = httpx.post("http://validator:8000/validate",
+                                  json={"revision":revision,"patch":patch}, timeout=45)
+            if response.status_code == 409:
+                raise HTTPException(409, "Runner is busy.")
+            response.raise_for_status()
+        except httpx.HTTPError:
+            raise HTTPException(503, "Validation runner unavailable.")
+        result = response.json()
+        db.execute("UPDATE investigations SET validation=%s WHERE trace=%s", (Jsonb(result), trace))
+    return result
+
+
 def read_job(trace):
     with psycopg.connect(row_factory=dict_row) as db:
-        return db.execute("SELECT trace,status,steps,result,error FROM investigations WHERE trace=%s", (trace,)).fetchone()
+        return db.execute("SELECT trace,status,steps,result,error,validation FROM investigations WHERE trace=%s", (trace,)).fetchone()
 
 
 @router.get("/investigations")

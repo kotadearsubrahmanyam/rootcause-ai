@@ -21,6 +21,10 @@ Use Compose for this walkthrough. The standalone Windows web launcher supports l
 
 Add `GROQ_API_KEY` to the local root `.env` and run `docker compose up --build -d --wait`. Open Incidents, run checkout once on the rebuilt demo release, refresh evidence, and select **Investigate**. The worker sends demo evidence to Groq when requested. Expand each citation to inspect its source. History reopens the saved result. To reload a changed key, run `docker compose up -d worker`.
 
+## Validate a proposed patch
+
+Open a completed investigation in Incidents or History and click **Validate patch**. The runner copies the matching deployed demo source into a temporary directory and runs pytest before and after a supported stock-contract diff. The checks cover successful checkout and a missing stock field. Downstream HTTP calls use in-process test responses. Outputs and outcomes are saved with the investigation. Unsupported patches and unavailable revisions are reported separately. Rebuild with `docker compose up --build -d --wait` to add the validator.
+
 ## Google login
 
 Create a Google OAuth web application. Set the authorized JavaScript origin to `http://localhost:3000` and the redirect URI to `http://localhost:3000/api/auth/callback/google`. In the generated root `.env`, fill in `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`. Keep the generated session secret. Run `docker compose up -d web` to reload the configuration, then choose **Continue with Google**. Signed-in users land in the demo workspace.

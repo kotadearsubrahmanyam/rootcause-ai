@@ -13,6 +13,7 @@ services:
       timeout: 3s
       retries: 20
   api:
+    networks: [default, validation]
     build: ./api
     environment:
       PGHOST: db
@@ -27,6 +28,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+  validator:
+    build:
+      context: ./demo
+      target: validation
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    pids_limit: 48
+    networks: [validation]
   worker:
     build: ./api
     command: ["python", "worker.py"]
@@ -99,5 +112,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+networks:
+  validation:
+    internal: true
 volumes:
   db_data:
