@@ -1,1 +1,36 @@
-# rootcause-ai
+# RootCause AI
+
+## Start locally on Windows
+
+Install Docker Desktop with Linux containers. From this folder run:
+
+```powershell
+.\setup.ps1
+docker compose up --build -d
+```
+
+Open http://localhost:3000 and select **Explore demo**. In Overview, **Connected** means Next.js fetched the seeded demo project from FastAPI and PostgreSQL. Incidents and History start empty. Only the web port is published. PostgreSQL uses a named volume.
+
+## Google login
+
+Create a Google OAuth web application. Set the authorized JavaScript origin to `http://localhost:3000` and the redirect URI to `http://localhost:3000/api/auth/callback/google`. In the generated root `.env`, fill in `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`. Keep the generated session secret. Run `docker compose up -d web` to reload the configuration, then choose **Continue with Google**. Signed-in users land in the demo workspace.
+
+## Progress
+
+| Phase | Status | Acceptance checkpoint |
+| --- | --- | --- |
+| 1 · Foundation | In progress | A fresh Compose start, guest dashboard and real Google sign-in |
+| 2 · Evidence | Planned | A real failed request correlates with its deployed commit |
+| 3 · AI investigator | Planned | Diagnosis cites logs and source lines |
+| 4 · Patch validation | Planned | Same regression test runs before and after patch |
+| 5 · Product workflow | Planned | History, graph and second project connection |
+| 6 · Demo readiness | Planned | Three failure scenarios and recovery cases rehearsed |
+
+### Phase 1 checklist
+
+- [x] Add frontend, API, database, Compose and persistent volume.
+- [x] Implement guest navigation, Google provider, and protected workspace entry.
+- [x] Isolate local credentials from Git.
+- [ ] Verify startup and guest navigation with Docker Desktop.
+- [ ] Complete real Google login and verify session and sign-out.
+- [x] Set up the private repository and six phase tracking issues (#1 through #6).
