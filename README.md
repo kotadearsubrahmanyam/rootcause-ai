@@ -31,7 +31,7 @@ Create a Google OAuth web application. Set the authorized JavaScript origin to `
 | --- | --- | --- |
 | 1 - Foundation | Complete | A fresh Compose start, guest dashboard and real Google sign-in |
 | 2 - Evidence | Complete | A real failed request correlates with its deployed commit |
-| 3 · AI investigator | In progress | Diagnosis cites logs and source lines |
+| 3 · AI investigator | Complete | Diagnosis cites logs and source lines |
 | 4 · Patch validation | Planned | Same regression test runs before and after patch |
 | 5 · Product workflow | Planned | History, graph and second project connection |
 | 6 · Demo readiness | Planned | Three failure scenarios and recovery cases rehearsed |
