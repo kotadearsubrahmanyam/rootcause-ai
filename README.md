@@ -26,7 +26,7 @@ Create a Google OAuth web application. Set the authorized JavaScript origin to `
 | Phase | Status | Acceptance checkpoint |
 | --- | --- | --- |
 | 1 - Foundation | Complete | A fresh Compose start, guest dashboard and real Google sign-in |
-| 2 - Evidence | In progress | A real failed request correlates with its deployed commit |
+| 2 - Evidence | Complete | A real failed request correlates with its deployed commit |
 | 3 · AI investigator | Planned | Diagnosis cites logs and source lines |
 | 4 · Patch validation | Planned | Same regression test runs before and after patch |
 | 5 · Product workflow | Planned | History, graph and second project connection |
