@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import time
 
 import groq
@@ -24,7 +25,7 @@ TOOLS = [{"type": "function", "function": {"name": name, "description": descript
           "parameters": {"type": "object", "properties": {}, "additionalProperties": False}}}
          for name, description in READS.items()]
 TOOLS.append({"type": "function", "function": {"name": "submit_diagnosis",
-    "description": "Submit the diagnosis with evidence IDs exactly as returned by tools. Supply a proposed unified diff or an empty string when uncertain.",
+    "description": "Cite evidence IDs returned by the tools. For a fix, use a single unified diff hunk against the inventory.py source you read. Use exactly --- a/inventory.py and +++ b/inventory.py, with no code fences or end marker. Preserve the deployed stock field and restore compatibility with its caller. Leave proposed_patch empty when the source is unavailable or the fix is uncertain.",
     "parameters": Diagnosis.model_json_schema()}})
 
 
@@ -43,6 +44,7 @@ def investigate(client, evidence, progress):
                 {"role": "user", "content": "Investigate checkout trace " + evidence["trace"]}]
     citations = {}
     reads = set()
+    grounded_result = None
     for _ in range(7):
         reply = client.chat.completions.create(model="openai/gpt-oss-120b", messages=messages,
             tools=TOOLS, tool_choice="required", max_completion_tokens=1800).choices[0].message
@@ -53,9 +55,14 @@ def investigate(client, evidence, progress):
             name = call.function.name
             if name == "submit_diagnosis":
                 result = Diagnosis.model_validate_json(call.function.arguments)
-                if reads == set(READS) and all(c in citations for c in result.citations):
+                if reads != set(READS) or not all(c in citations for c in result.citations):
+                    data = {"error": "Read all three tools and cite only returned evidence IDs."}
+                elif result.proposed_patch and not grounded_inventory_patch(result.proposed_patch, citations):
+                    grounded_result = {**result.model_dump(), "proposed_patch": "",
+                                       "evidence": {c: citations[c] for c in result.citations}}
+                    data = {"error": "Use one replacement hunk matching the inventory.py lines returned by read_source. Use --- a/inventory.py and +++ b/inventory.py with no trailing marker, or submit an empty patch."}
+                else:
                     return {**result.model_dump(), "evidence": {c: citations[c] for c in result.citations}}
-                data = {"error": "Read all three tools and cite only returned evidence IDs."}
             elif name in READS:
                 if name == "read_trace":
                     data = {f"trace:{s}": facts[s] for s in ("checkout","orders","inventory")}
@@ -69,7 +76,26 @@ def investigate(client, evidence, progress):
             else:
                 data = {"error": "Unknown tool."}
             messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(data)})
+    if grounded_result is not None:
+        return grounded_result
     raise ValueError("No grounded diagnosis returned")
+
+
+def grounded_inventory_patch(patch, citations):
+    lines = patch.strip("\n").splitlines()
+    while lines and lines[0].startswith(("diff --git ", "index ")):
+        lines.pop(0)
+    if len(lines) < 5 or lines[:2] != ["--- a/inventory.py", "+++ b/inventory.py"]:
+        return False
+    if not re.fullmatch(r"@@(?: -\d+(?:,\d+)? \+\d+(?:,\d+)? @@.*)?", lines[2]):
+        return False
+    hunk = lines[3:]
+    if any(not line or line[0] not in " +-" for line in hunk):
+        return False
+    original = [line[1:] for line in hunk if line[0] != "+"]
+    source_lines = [value for key, value in citations.items() if key.startswith("inventory.py:")]
+    return (any(line.startswith("-") for line in hunk) and any(line.startswith("+") for line in hunk)
+            and any(source_lines[i:i+len(original)] == original for i in range(len(source_lines))))
 
 
 def process(db, client=None):
