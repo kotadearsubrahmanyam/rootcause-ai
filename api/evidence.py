@@ -26,6 +26,8 @@ def ingest(payload: dict):
             if service not in {"checkout", "orders", "inventory"}:
                 continue
             for scope in resource.get("scopeSpans", []):
+                if scope.get("scope", {}).get("name") != "demo.store":
+                    continue
                 for span in scope.get("spans", []):
                     db.execute("""INSERT INTO demo_spans VALUES (%s,%s,%s,%s,%s,%s)
                         ON CONFLICT DO NOTHING""", (span["traceId"], span["spanId"], service,
@@ -48,11 +50,12 @@ def incidents():
         rows = db.execute("""WITH failures AS (
             SELECT DISTINCT ON (revision) trace_id, revision, start_ns,
                 count(*) OVER (PARTITION BY revision) AS occurrences
-            FROM demo_spans WHERE service='checkout'
+            FROM demo_spans WHERE service='checkout' AND evidence->>'name'=service
               AND (evidence->'status'->>'code') IN ('2','STATUS_CODE_ERROR')
             ORDER BY revision, start_ns DESC)
             SELECT f.trace_id,f.revision,f.occurrences,s.service,s.evidence
             FROM failures f JOIN demo_spans s USING(trace_id)
+            WHERE s.evidence->>'name'=s.service
             ORDER BY f.start_ns DESC,s.start_ns""").fetchall()
     reports = {}
     for trace_id, revision, count, service, span in rows:

@@ -12,9 +12,17 @@ export default async function Workspace({ searchParams }: { searchParams: Promis
   const tabs = ["Overview", "Incidents", "History"];
   const view = tabs.find(t => t.toLowerCase() === query.view) || "Overview";
   let project: { name: string } | null = null;
+  let failures: number | null = null;
   try {
     const result = await fetch(process.env.API_URL + "/projects/demo", { cache: "no-store", signal: AbortSignal.timeout(3000) });
     if (result.ok) project = await result.json();
+    if (view === "Overview" && project) {
+      const response = await fetch(process.env.API_URL + "/demo/incidents", {cache: "no-store"});
+      if (response.ok) {
+        const reports: {count: number}[] = await response.json();
+        failures = reports.reduce((sum, item) => sum + item.count, 0);
+      }
+    }
   } catch { /* Display the disconnected state below. */ }
   return <main className="workspace"><header><Link href="/">RootCause AI</Link>
     <nav aria-label="Workspace">{tabs.map(t => <Link key={t} aria-current={t === view ? "page" : undefined}
@@ -22,6 +30,6 @@ export default async function Workspace({ searchParams }: { searchParams: Promis
     {guest ? <span>Guest</span> : <Link href="/api/auth/signout">Sign out</Link>}</header>
     <section className="glass panel"><small>{project?.name || "Project unavailable"}</small><h1>{view}</h1>
     {view === "Overview" ? <div className="grid"><article><h2>Project connection</h2><strong>{project ? "Connected" : "Unavailable"}</strong><p>{project ? "The API can read this project from PostgreSQL." : "Check the API and database connection."}</p></article>
-    <article><h2>Application health</h2><strong>Awaiting telemetry</strong><p>Service health will appear after the first trace arrives.</p></article></div>
+    <article><h2>Application health</h2><strong>{failures === null ? "Unavailable" : failures ? "Checkout failures recorded" : "Awaiting telemetry"}</strong><p>{failures ? `Open Incidents to inspect ${failures} failed requests.` : "Service health will appear after the first trace arrives."}</p></article></div>
     : view === "Incidents" ? <Incidents/> : <article><h2>{view === "History" ? "No investigations yet" : "No incidents recorded"}</h2><p>{view === "History" ? "Completed investigations will appear here." : "Incidents will appear when the store sends failure data."}</p></article>}</section></main>;
 }
